@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: facets-env
+  namespace: facets
+data:
+  # JVM / app flags
+  JAVA_XMS: "256m"
+  JAVA_XMX: "1024m"
+  SERVER_PORT: "9080"
+  LOG_DIR: "/var/logs/springboot"
+  LOADER_PATH: "WEB-INF/lib-provided,WEB-INF/lib,WEB-INF/classes,file:/app/lib/,file:/app/config/"
+
+  # DB (NON-secret parts)
+  SPRING_DATASOURCE_DRIVERCLASSNAME: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+  SPRING_DATASOURCE_URL: "jdbc:sqlserver://<sql-host>:1433;databaseName=fabcndv2;trustServerCertificate=true"
+
+  # ActiveMQ endpoint (if not secret)
+  SPRING_ACTIVEMQ_BROKER_URL: "tcp://<activemq-host>:61616"
+  SPRING_ACTIVEMQ_IN_MEMORY: "true"
+
+  # Optional DBCP tuning
+  SPRING_DATASOURCE_TYPE: "org.apache.commons.dbcp2.BasicDataSource"
+  SPRING_DATASOURCE_DBCP2_DEFAULT_AUTO_COMMIT: "true"
+  SPRING_DATASOURCE_DBCP2_INITIAL_SIZE: "10"
+  SPRING_DATASOURCE_DBCP2_MAX_TOTAL: "100"
+  SPRING_DATASOURCE_DBCP2_MAX_IDLE: "20"
+  SPRING_DATASOURCE_DBCP2_MAX_OPEN_PREPARED_STATEMENTS: "0"
+  SPRING_DATASOURCE_DBCP2_REMOVE_ABANDONED_ON_BORROW: "true"
+  SPRING_DATASOURCE_DBCP2_REMOVE_ABANDONED_TIMEOUT: "60"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: facets-secrets
+  namespace: facets
+type: Opaque
+stringData:
+  SPRING_DATASOURCE_USERNAME: "facetsnw"
+  SPRING_DATASOURCE_PASSWORD: "<db-password>"
+  JASYPT_ENCRYPTOR_PASSWORD: "<jasypt-password>"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: facets
+  namespace: facets
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: facets }
+  template:
+    metadata:
+      labels: { app: facets }
+    spec:
+      containers:
+        - name: app
+          image: facets-app:latest
+          ports:
+            - containerPort: 9080
+          envFrom:
+            - configMapRef:
+                name: facets-env
+            - secretRef:
+                name: facets-secrets
+          volumeMounts:
+            - name: cfg
+              mountPath: /app/config
+            - name: logs
+              mountPath: /var/logs/springboot
+      volumes:
+        - name: cfg
+          projected:
+            sources:
+              - configMap:
+                  name: facets-config   # your files: application.properties, log4j2.xml, system.properties
+        - name: logs
+          emptyDir: {}
+---
+# Facets (Spring Boot WAR w/ PropertiesLauncher)
+FROM eclipse-temurin:17-jre-jammy
+
+# Non-root user + dirs
+RUN useradd -r -u 10001 -g root appuser && \
+    mkdir -p /app /app/config /app/lib /var/logs/springboot && \
+    chown -R appuser:root /app /var/logs/springboot && \
+    chmod -R 775 /app /var/logs/springboot
+
+WORKDIR /app
+
+# Copy artifact + local config/lib (you can mount them at runtime too)
+COPY build/networkx-pricer-facets.war /app/app.war
+COPY config/ /app/config/
+COPY lib/ /app/lib/
+
+# Defaults (override in docker run / compose / K8s)
+ENV SERVER_PORT=9080 \
+    LOG_DIR=/var/logs/springboot \
+    JASYPT_ENCRYPTOR_PASSWORD="" \
+    JAVA_XMS=256m \
+    JAVA_XMX=1024m \
+    LOADER_PATH="WEB-INF/lib-provided,WEB-INF/lib,WEB-INF/classes,file:/app/lib/,file:/app/config/"
+
+EXPOSE 9080
+USER appuser
+
+# Simple TCP healthcheck on the app port
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+  CMD bash -lc "exec 3<>/dev/tcp/127.0.0.1/${SERVER_PORT} && exit 0 || exit 1"
+
+# Match start_AIX2.sh exactly (PropertiesLauncher + -cp app.war)
+ENTRYPOINT ["bash","-lc", "\
+  exec java \
+    -Xms${JAVA_XMS} -Xmx${JAVA_XMX} \
+    -Djasypt.encryptor.password=${JASYPT_ENCRYPTOR_PASSWORD} \
+    -Dcom.trizetto.networkx.logDirectory=${LOG_DIR} \
+    -Dserver.port=${SERVER_PORT} \
+    -Dloader.path=${LOADER_PATH} \
+    -cp /app/app.war \
+    org.springframework.boot.loader.launch.PropertiesLauncher \
+"]
