@@ -67,6 +67,20 @@ podman run -d --name facets \
   -v ./config:/app/config:ro,Z \
   -v ./lib:/app/lib:ro,Z \
   -v ./logs:/var/logs/springboot:Z \
+  localhost/facorets:local
+
+
+OR
+
+podman run -d --name facets \
+  -p 9080:9080 \
+  -e JASYPT_ENCRYPTOR_PASSWORD='*****' \
+  -e SPRING_AUTOCONFIGURE_EXCLUDE=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration \
+  -e SPRING_ACTIVEMQ_BROKER_URL='vm://localhost?broker.persistent=false' \
+  -e SPRING_ACTIVEMQ_IN_MEMORY='true' \
+  -v ./config:/app/config:ro,Z \
+  -v ./lib:/app/lib:ro,Z \
+  -v ./logs:/var/logs/springboot:Z \
   localhost/facets:local
 
 
