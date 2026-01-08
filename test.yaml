@@ -1,0 +1,58 @@
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: none  # Let ALB handle TLS via ACM
+  ingress:
+    hosts:
+      core: harbor.bbb.be
+      notary: notary.harbor.bbb.be
+    controller: default
+    className: "alb"
+    annotations:
+      # ALB Configuration
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/backend-protocol: HTTPS
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+      
+      # ACM Certificate - UPDATE THIS with your certificate ARN for *.bbn.be or harbor.bbn.be
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:kkkkk:certificate/YOUR_CERT_ID
+      
+      # Additional settings from your working ingress
+      alb.ingress.kubernetes.io/tags: 'bcnc:appname=eks-alpha-test, .......
+      alb.ingress.kubernetes.io/target-group-attributes: 'stickiness.enabled=true, stickiness.lb_cookie.duration_seconds=300'
+      kubectl.kubernetes.io/last-applied-configuration: ''
+  clusterIP:
+    name: harbor
+    staticClusterIP: ""
+    ports:
+      httpPort: 80
+      httpsPort: 443
+    annotations: {}
+    labels: {}
+
+externalURL: https://harbor.bbb.be
+
+harborAdminPassword: ooooooo
+
+persistence:
+  enabled: true
+  storageClass: gp3  # Based on your cluster, change if needed
+  persistentVolumeClaim:
+    registry:
+      size: 5Gi
+    chartmuseum:
+      size: 2Gi
+    jobservice:
+      size: 1Gi
+    database:
+      size: 2Gi
+    redis:
+      size: 1Gi
+    trivy:
+      size: 5Gi
+
+trivy:
+  enabled: true
