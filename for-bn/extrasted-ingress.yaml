@@ -1,0 +1,75 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/proxy-body-size: "0"
+    ingress.kubernetes.io/ssl-redirect: "true"
+    meta.helm.sh/release-name: harbor
+    meta.helm.sh/release-namespace: harbor
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  creationTimestamp: "2026-01-08T16:26:00Z"
+  generation: 1
+  labels:
+    app: harbor
+    app.kubernetes.io/instance: harbor
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: harbor
+    app.kubernetes.io/part-of: harbor
+    app.kubernetes.io/version: 2.14.1
+    chart: harbor
+    heritage: Helm
+    release: harbor
+  name: harbor-ingress
+  namespace: harbor
+  resourceVersion: "462514416"
+  uid: 75b1a774-8f57-4744-8af9-dc1b1c97ee37
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: harbor.bbn.be
+    http:
+      paths:
+      - backend:
+          service:
+            name: harbor-core
+            port:
+              number: 80
+        path: /api/
+        pathType: Prefix
+      - backend:
+          service:
+            name: harbor-core
+            port:
+              number: 80
+        path: /service/
+        pathType: Prefix
+      - backend:
+          service:
+            name: harbor-core
+            port:
+              number: 80
+        path: /v2/
+        pathType: Prefix
+      - backend:
+          service:
+            name: harbor-core
+            port:
+              number: 80
+        path: /c/
+        pathType: Prefix
+      - backend:
+          service:
+            name: harbor-portal
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - harbor.bbn.be
+    secretName: ingress-nginx
+status:
+  loadBalancer:
+    ingress:
+    - hostname: ae72a9e966309444e80fa67bbc381843-1387813357.us-east-1.elb.amazonaws.com
