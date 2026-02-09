@@ -374,7 +374,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: liberty.s3gis.be
+  - host: liberty.s3g.be
     http:
       paths:
       - path: /
@@ -402,8 +402,8 @@ kubectl get pods -l app=liberty-test
 kubectl logs -l app=liberty-test
 
 # Test health endpoints
-curl http://liberty.s3gis.be/health/live
-curl http://liberty.s3gis.be/health/ready
+curl http://liberty.sdoves.be/health/live
+curl http://liberty.sdoves.be/health/ready
 
 # Test metrics endpoint
-curl http://liberty.s3gis.be/metrics
+curl http://liberty.sdoves.be/metrics
